@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">heif2jpg</string>
+    <string name="select_img_text">Select Images</string>
+    <string name="select_multiple_img_text">select multiple image</string>
+    <string name="permission_rationale">Please provide the permissions</string>
+</resources>
