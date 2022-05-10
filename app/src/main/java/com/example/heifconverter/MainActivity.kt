@@ -25,13 +25,12 @@ class MainActivity : AppCompatActivity() {
     companion object {
         val PERMISSIONS = arrayOf(
             android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-        )
+            android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
         const val RC_PERMISSION_READ_EXTERNAL_STORAGE = 1
     }
 
-    val getContent = registerForActivityResult(GetMultipleContents()) {
+    private val getContent = registerForActivityResult(GetMultipleContents()) {
         if (it.isNotEmpty()) {
             Toast.makeText(this, "Selected ${it.size} images", Toast.LENGTH_SHORT).show()
             it.forEach {
@@ -49,35 +48,37 @@ class MainActivity : AppCompatActivity() {
 
         initPermissions()
 
-        bSelect.setOnClickListener() {
+        bSelect.setOnClickListener {
             getContent.launch("image/*")
         }
 
         when (intent?.action) {
             Intent.ACTION_SEND -> {
-                val sharedUri = intent.data ?: intent.getParcelableExtra(Intent.EXTRA_STREAM)
-                if (sharedUri != null) {
+                intent.data ?: intent.getParcelableExtra<Uri?>(Intent.EXTRA_STREAM)?.let {
                     thread {
                         Looper.prepare()
-                        convert(sharedUri)
+                        convert(it)
                     }
                 }
             }
+            Intent.ACTION_SEND_MULTIPLE -> {
+                intent.getParcelableArrayListExtra<Uri?>(Intent.EXTRA_STREAM)?.forEach {
+                    thread {
+                        Looper.prepare()
+                        convert(it)
+                    }
+                }
+            }
+
         }
 
     }
 
     private fun initPermissions() {
-        if (EasyPermissions.hasPermissions(this, *PERMISSIONS)) {
-            // Already have permission, do the thing
-            // ...
-        } else {
+        if (!EasyPermissions.hasPermissions(this, *PERMISSIONS)) {
             // Do not have permissions, request them now
             EasyPermissions.requestPermissions(
-                this,
-                getString(R.string.permission_rationale),
-                RC_PERMISSION_READ_EXTERNAL_STORAGE,
-                *PERMISSIONS
+                this, getString(R.string.permission_rationale), RC_PERMISSION_READ_EXTERNAL_STORAGE, *PERMISSIONS
             )
         }
     }
@@ -87,10 +88,8 @@ class MainActivity : AppCompatActivity() {
         val bitmap = ImageDecoder.decodeBitmap(source)
 
         try {
-            saveBitmap(
-                this, bitmap, Bitmap.CompressFormat.JPEG,
-                "image/jpeg", uri.lastPathSegment + ".jpeg"
-            )
+            saveBitmap(this, bitmap, Bitmap.CompressFormat.JPEG,
+                "image/jpeg", uri.lastPathSegment + ".jpeg")
         } catch (e: IOException) {
             Log.d("convert", e.toString())
             Toast.makeText(this, "Error: $e", Toast.LENGTH_SHORT).show()
@@ -100,8 +99,7 @@ class MainActivity : AppCompatActivity() {
 
     @Throws(IOException::class)
     fun saveBitmap(
-        context: Context, bitmap: Bitmap, format: Bitmap.CompressFormat,
-        mimeType: String, displayName: String
+        context: Context, bitmap: Bitmap, format: Bitmap.CompressFormat, mimeType: String, displayName: String
     ): Uri {
 
         val values = ContentValues().apply {
@@ -118,8 +116,7 @@ class MainActivity : AppCompatActivity() {
                     uri = it // Keep uri reference so it can be removed on failure
 
                     openOutputStream(it)?.use { stream ->
-                        if (!bitmap.compress(format, 95, stream))
-                            throw IOException("Failed to save bitmap.")
+                        if (!bitmap.compress(format, 100, stream)) throw IOException("Failed to save bitmap.")
                     } ?: throw IOException("Failed to open output stream.")
 
                 } ?: throw IOException("Failed to create new MediaStore record.")
